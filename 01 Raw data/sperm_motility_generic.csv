@@ -1,0 +1,97 @@
+male_ID,time_points,treatment_1,treatment_2,sperm_age,mean_sperm_motility
+1,0,with sem fluid,old sem fluid,2,7.829166667
+1,2,with sem fluid,old sem fluid,2,7.047966667
+1,4,with sem fluid,old sem fluid,2,5.9737
+1,6,with sem fluid,old sem fluid,2,5.473266667
+1,0,with sem fluid,young sem fluid,2,8.179033333
+1,2,with sem fluid,young sem fluid,2,6.746066667
+1,4,with sem fluid,young sem fluid,2,6.2026
+1,6,with sem fluid,young sem fluid,2,5.95
+1,0,W/O sem fluid,no sem fluid ,2,7.566666667
+1,2,W/O sem fluid,no sem fluid ,2,2.603333333
+1,4,W/O sem fluid,no sem fluid ,2,2.716666667
+1,6,W/O sem fluid,no sem fluid ,2,2.796666667
+2,0,with sem fluid,old sem fluid,2,9.793533333
+2,2,with sem fluid,old sem fluid,2,7.748433333
+2,4,with sem fluid,old sem fluid,2,6.481166667
+2,6,with sem fluid,old sem fluid,2,5.886666667
+2,0,with sem fluid,young sem fluid,2,2.113
+2,2,with sem fluid,young sem fluid,2,1.935366667
+2,4,with sem fluid,young sem fluid,2,2.125766667
+2,6,with sem fluid,young sem fluid,2,2.204633333
+2,0,W/O sem fluid,no sem fluid ,2,7.643333333
+2,2,W/O sem fluid,no sem fluid ,2,5.276666667
+2,4,W/O sem fluid,no sem fluid ,2,3.226666667
+2,6,W/O sem fluid,no sem fluid ,2,2.606666667
+3,0,with sem fluid,old sem fluid,5,5.3983
+3,2,with sem fluid,old sem fluid,5,3.921966667
+3,4,with sem fluid,old sem fluid,5,3.7763
+3,6,with sem fluid,old sem fluid,5,3.448133333
+3,0,with sem fluid,young sem fluid,5,12.0352
+3,2,with sem fluid,young sem fluid,5,10.69
+3,4,with sem fluid,young sem fluid,5,3.224566667
+3,6,with sem fluid,young sem fluid,5,2.57
+3,0,W/O sem fluid,no sem fluid ,5,1.88
+3,2,W/O sem fluid,no sem fluid ,5,1.506666667
+3,4,W/O sem fluid,no sem fluid ,5,1.383333333
+3,6,W/O sem fluid,no sem fluid ,5,5.3983
+4,0,with sem fluid,old sem fluid,5,3.921966667
+4,2,with sem fluid,old sem fluid,5,3.7763
+4,4,with sem fluid,old sem fluid,5,3.448133333
+4,6,with sem fluid,old sem fluid,5,5.7718
+4,0,with sem fluid,young sem fluid,5,5.2756
+4,2,with sem fluid,young sem fluid,5,5.0148
+4,4,with sem fluid,young sem fluid,5,4.513
+4,6,with sem fluid,young sem fluid,5,4.023
+4,0,W/O sem fluid,no sem fluid ,5,7.25
+4,2,W/O sem fluid,no sem fluid ,5,5.77
+4,4,W/O sem fluid,no sem fluid ,5,3.14
+4,6,W/O sem fluid,no sem fluid ,5,3.06
+5,0,with sem fluid,old sem fluid,40,6.766466667
+5,2,with sem fluid,old sem fluid,40,4.947666667
+5,4,with sem fluid,old sem fluid,40,4.510333333
+5,6,with sem fluid,old sem fluid,40,3.835533333
+5,0,with sem fluid,young sem fluid,40,11.57253333
+5,2,with sem fluid,young sem fluid,40,8.0793
+5,4,with sem fluid,young sem fluid,40,6.910566667
+5,6,with sem fluid,young sem fluid,40,4.871
+5,0,W/O sem fluid,no sem fluid ,40,14.19666667
+5,2,W/O sem fluid,no sem fluid ,40,12.33
+5,4,W/O sem fluid,no sem fluid ,40,11.63333333
+5,6,W/O sem fluid,no sem fluid ,40,10.53666667
+6,0,with sem fluid,old sem fluid,40,9.625066667
+6,2,with sem fluid,old sem fluid,40,9.672466667
+6,4,with sem fluid,old sem fluid,40,9.429266667
+6,6,with sem fluid,old sem fluid,40,8.738033333
+6,0,with sem fluid,young sem fluid,40,6.014266667
+6,2,with sem fluid,young sem fluid,40,4.453
+6,4,with sem fluid,young sem fluid,40,3.933866667
+6,6,with sem fluid,young sem fluid,40,3.606933333
+6,0,W/O sem fluid,no sem fluid ,40,11.97666667
+6,2,W/O sem fluid,no sem fluid ,40,9.453333333
+6,4,W/O sem fluid,no sem fluid ,40,4.546666667
+6,6,W/O sem fluid,no sem fluid ,40,4.06
+7,0,with sem fluid,old sem fluid,48,2.845333333
+7,2,with sem fluid,old sem fluid,48,1.672166667
+7,4,with sem fluid,old sem fluid,48,1.5352
+7,6,with sem fluid,old sem fluid,48,1.504633333
+7,0,with sem fluid,young sem fluid,48,9.660066667
+7,2,with sem fluid,young sem fluid,48,9.0768
+7,4,with sem fluid,young sem fluid,48,8.460466667
+7,6,with sem fluid,young sem fluid,48,7.560566667
+7,0,W/O sem fluid,no sem fluid ,48,10.97
+7,2,W/O sem fluid,no sem fluid ,48,6.27
+7,4,W/O sem fluid,no sem fluid ,48,5.04
+7,6,W/O sem fluid,no sem fluid ,48,4
+8,0,with sem fluid,old sem fluid,48,9.698733333
+8,2,with sem fluid,old sem fluid,48,8.4655
+8,4,with sem fluid,old sem fluid,48,7.327933333
+8,6,with sem fluid,old sem fluid,48,6.921566667
+8,0,with sem fluid,young sem fluid,48,11.5401
+8,2,with sem fluid,young sem fluid,48,10.40836667
+8,4,with sem fluid,young sem fluid,48,9.048433333
+8,6,with sem fluid,young sem fluid,48,8.873933333
+8,0,W/O sem fluid,no sem fluid ,48,5.306666667
+8,2,W/O sem fluid,no sem fluid ,48,3.066666667
+8,4,W/O sem fluid,no sem fluid ,48,2.583333333
+8,6,W/O sem fluid,no sem fluid ,48,2.356666667

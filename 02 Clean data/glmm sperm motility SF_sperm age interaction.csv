@@ -1,0 +1,4 @@
+"","Chisq","Df","Pr(>Chisq)"
+"time.factor",497.562266954872,3,1.61049929034965e-107
+"treatment_combination",3.676525761695,3,0.298578607174435
+"time.factor:treatment_combination",7.92893526206326,9,0.541323443822106
