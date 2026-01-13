@@ -1,0 +1,587 @@
+---
+title: "Generic sperm motility analysis"
+author: "Nnamdi and Otti"
+date: "2026-01-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+This document can be used by the tudaz lab members to process and analyse data from experiments on sperm motility. The script should be fool-proof. The user doesn't need to know R but can still get valuable insights into their data. 
+
+This report reproduces the full sperm-motility analysis pipeline and embeds all
+plots and statistical outputs.
+
+## Project information
+For starters enter your details here:   
+
+Project name:
+
+Authors:
+
+Start date:
+
+Last updated:
+
+Short description of the project and data:
+
+
+## Generic script to analyse sperm motility data
+We will start by loading libraries for data wrangling and visualization.
+```{r load packages, echo=TRUE, message=FALSE, warning=FALSE}
+# Clear workspace
+rm(list = ls())
+
+# 1. Load required packages
+library(tidyverse)
+library(broom)
+library(swirl)
+library(lme4)
+library(lmerTest)
+library(DHARMa)
+library(ggfortify)
+library(emmeans)
+```
+
+Now we load the data and inspect its structure. For this to work this .Rmd file has to be in the same folder as the .csv data file.
+
+**Data structure**
+```{r load data, echo=FALSE, message=FALSE, warning=FALSE}
+# 2. Load and inspect my_data----------------------------
+my_data <- read.csv('seminal_fluid vs male age interaction.csv')
+#my_data <- read.csv('01 Raw data/sperm_age vs SF_age.csv')
+
+# Data structure
+str(my_data)
+```
+
+The first few rows of the data set
+```{r inspect data, echo=FALSE, message=FALSE, warning=FALSE}
+# Display first few rows
+head(my_data)
+```
+
+**Variable detection**   
+   
+We need to identify the response variable from our data using the keyword 'sperm motility' and set it apart from other variables. Just like the response variable, we also need to set apart the ID column from other columns. This will be useful when we choose the model type to use.
+
+Response variables
+```{r response variables, echo=FALSE, message=FALSE, warning=FALSE}
+# Display variable names
+# Identify response variables
+response_candidates <- grep("sperm.*motil", names(my_data), ignore.case = TRUE, value = TRUE)
+if (length(response_candidates) == 0) stop("No sperm motility variable found.")
+response_var <- response_candidates[1]
+cat(response_var, sep = "\n")
+```
+
+Predictor variables and ID
+```{r identify predictors and id, echo=FALSE, message=FALSE, warning=FALSE}
+# Identify predictor variables
+predictors <- setdiff(names(my_data), response_var)
+cat(predictors, sep = "\n")
+
+# Automatically detect ID column
+id_col <- grep("id", names(my_data), ignore.case = TRUE, value = TRUE)
+if (length(id_col) > 0) {
+  id_col <- id_col[1]
+  my_data[[id_col]] <- as.factor(my_data[[id_col]])
+  cat(id_col, sep = "\n")
+} else {
+  warning("No ID detected — random effects will not be used.")
+  id_col <- NULL
+}
+```
+
+Keyword-based variable detection
+```{r keyword variable detection, echo=FALSE, message=FALSE, warning=FALSE}
+# 3. Keyword-based variable detection -----------
+keyword_list <- list(
+  treatment     = c("treatment_combination", "medium", "condition", "treatment"),
+  age           = c("male_age", "sperm_age", "age"),
+  species       = c("species"),
+  temperature   = c("temp", "temperature"),
+  time          = c("time_factor", "time"),
+  concentration = c("conc", "concentration", "density"),
+  id            = c("id", "male_ID", "subject")
+)
+
+# Function to search for variable name based on keyword list
+detect_var <- function(keywords, data_names) {
+  unique(unlist(lapply(keywords, function(k) 
+    grep(k, data_names, ignore.case = TRUE, value = TRUE))))
+}
+
+# Detect variables
+detected_vars <- lapply(keyword_list, detect_var, data_names = names(my_data))
+
+# Helper to print detected variables
+print_var <- function(label, var) {
+  if (length(var) == 0) cat(label, ": no variable found\n") 
+  else cat(label, ":", paste(var, collapse = ", "), "\n")
+}
+
+for (n in names(detected_vars)) {
+  label <- paste0(toupper(substr(n, 1, 1)), substr(n, 2, nchar(n)), 
+                  " variable(s)")
+  print_var(label, detected_vars[[n]])
+}
+
+# Apply detection for each variable type
+treatment_var <- detect_var(keyword_list$treatment, names(my_data))
+age_var <- detect_var(keyword_list$age, names(my_data))
+species_var <- detect_var(keyword_list$species, names(my_data))
+temp_var <- detect_var(keyword_list$temperature, names(my_data))
+time_var <- detect_var(keyword_list$time, names(my_data))
+conc_var <- detect_var(keyword_list$concentration, names(my_data))
+id_var <- detect_var(keyword_list$id, names(my_data))
+```
+
+Variable classification
+
+After the variables have been detected, we need to group them into categorical and numeric variables. We can then go ahead and define categorical variables to factors.  
+```{r variable classification, echo=FALSE, message=FALSE, warning=FALSE}
+# 4. Combine detected variables-----------
+categorical_vars <- unique(c(treatment_var, species_var, age_var, time_var,
+                             id_var))
+numeric_vars <- unique(c(temp_var, conc_var))
+
+
+# Fallback if nothing detected by keywords    
+if (length(categorical_vars) == 0) {
+  categorical_vars <- predictors[sapply(my_data[predictors],
+                                        function(x) is.character(x) || is.factor(x))]
+}
+if (length(numeric_vars) == 0) {
+  numeric_vars <- predictors[sapply(my_data[predictors], is.numeric)]
+}
+
+# Convert categorical variables to factors
+my_data[categorical_vars] <- lapply(my_data[categorical_vars], as.factor)
+
+cat("Categorical predictors:\n", categorical_vars, "\n","\n",
+    "Numeric predictors:\n", numeric_vars, "\n")
+```
+Here something is wrong because time_var is a categorical and a numeric variable!!! This we need to solve!!!
+
+## Sperm motility plots
+   
+A first exploratory plot of the raw data
+```{r plot data, echo=FALSE, message=FALSE, warning=FALSE}
+# 5. Plot your data with ggplot2----------------------------
+
+# Only use the fixed factors for finding the correct plot
+fixed.predictors <- c(treatment_var, age_var, time_var)
+
+# Find the appropriate plot based on the number of predictors detected
+# Make a first exploratory plot of raw data
+if (length(fixed.predictors) == 1) {
+    ggplot(my_data, aes_string(x = time_var, y = response_var)) +
+    geom_point(aes(group = treatment_var), alpha = 0.6, size = 2) +
+    theme_classic() +
+    labs(x = "Time (min)", y = "Sperm motility", color = "Treatments"
+    )+
+    theme(legend.position = "bottom",
+          plot.title = element_text(hjust = 0.5, size=16, face="bold"),
+          axis.title = element_text(size=14),
+          axis.text = element_text(size=12),
+          strip.text = element_text(size=12, face="bold"),
+          strip.background = element_rect(fill="lightgrey"))
+} else if (length(fixed.predictors) == 2) {
+    ggplot(my_data, aes_string(x = time_var, y = response_var, 
+                                  color = treatment_var)) +
+    geom_point(aes(group = treatment_var), alpha = 0.6, size = 2) +
+    theme_classic() +
+    labs(x = "Time (min)", y = "Sperm motility", color = "Treatments"
+    )+
+    theme(legend.position = "bottom",
+          plot.title = element_text(hjust = 0.5, size=16, face="bold"),
+          axis.title = element_text(size=14),
+          axis.text = element_text(size=12),
+          strip.text = element_text(size=12, face="bold"),
+          strip.background = element_rect(fill="lightgrey"))
+} else if (length(fixed.predictors) == 3) {
+    ggplot(my_data, aes_string(x = time_var, y = response_var, 
+                                  color = treatment_var)) +
+    geom_point(aes(group = treatment_var), alpha = 0.6, size = 2) +
+    theme_classic() +
+    facet_wrap(as.formula(paste("~", age_var[1])), nrow = 1) +
+    labs(x = "Time (min)", y = "Sperm motility", color = "Treatments"
+    )+
+    theme(legend.position = "bottom",
+          plot.title = element_text(hjust = 0.5, size=16, face="bold"),
+          axis.title = element_text(size=14),
+          axis.text = element_text(size=12),
+          strip.text = element_text(size=12, face="bold"),
+          strip.background = element_rect(fill="lightgrey"))
+  
+} else {
+  cat("More than three predictors detected. Think of how you want to plot this.\n")
+}
+```
+
+**Mean, maximum and minimum sperm motility**   
+    
+Having made exploratory plots. Now we go a little further and plot the mean, maximum and minimum sperm motility including the individual data points. 
+    
+Sperm motility over time variable, age variable, and treatment variables.   
+    
+```{r plot means, echo=FALSE, message=FALSE, warning=FALSE}
+# Create group means using detected predictor variables
+# Identify which group of variables are present
+group_vars <- c(
+  if (length(age_var) >= 1) age_var[1],
+  if (length(treatment_var) >= 1) treatment_var[1],
+  if (length(time_var) >= 1) time_var[1]
+)
+
+# Stop if none exist
+if (length(group_vars) == 0) {
+  stop("No age, treatment, or time variable detected. Cannot proceed with 
+       group means calculation.")
+}
+# Calculate means and SE for plotting
+# Calculate overall mean sperm motility across all groups
+general_mean_SM <- my_data %>%
+  group_by(across(all_of(group_vars))) %>%
+  summarise(
+    mean_SM = mean(.data[[response_var]], na.rm = TRUE),
+    se_SM = sd(.data[[response_var]], na.rm = TRUE) / sqrt(n()),
+    max_SM = max(.data[[response_var]], na.rm = TRUE),
+    min_SM = min(.data[[response_var]], na.rm = TRUE)
+  )
+
+# Calculate mean sperm motility per male across all groups
+means_SM <- my_data %>%
+  group_by(across(all_of(id_var[1])),across(all_of(group_vars[1:2]))) %>%
+  summarise(
+    mean_SM = mean(.data[[response_var]], na.rm = TRUE),
+    se_mean_SM = sd(.data[[response_var]], na.rm = TRUE)/ sqrt(n()),
+    max_SM = max(.data[[response_var]], na.rm = TRUE),
+    min_SM = min(.data[[response_var]], na.rm = TRUE)
+  )
+
+# Order levels of the time variable
+levels(general_mean_SM[[time_var[1]]]) <- c("0", "2", "4", "6")
+
+# Plot sperm motility over time variable, age variable, and treatment variables 
+# use a conditional statement to plot depending on the number of predictor 
+# variables detected
+ggplot() +
+  geom_point(data = my_data, aes_string(x = time_var[1], 
+                                        y = response_var,
+           color = treatment_var[1]), col = "grey", size = 0.5, alpha = 0.8) +
+  geom_point(data = general_mean_SM, aes_string(x = time_var[1], y = "mean_SM",
+           color = treatment_var[1]), size = 3) +
+  facet_wrap(as.formula(paste("~", age_var[1])),nrow=1)+
+  geom_line(data = general_mean_SM, aes_string(x = time_var[1], y = "mean_SM",
+           group = treatment_var[1], color = treatment_var[1]),
+           linewidth = 0.5,
+           alpha = 0.5) +
+  theme_classic() +
+  geom_errorbar(data = general_mean_SM,
+                aes_string(x = time_var[1], y = "mean_SM",
+                           ymin = "mean_SM - se_SM",
+                           ymax = "mean_SM + se_SM",
+                           color = treatment_var[1]), width = 0.1) +
+  labs(x = "Time (min)",
+       y = "Sperm motility",
+       color = "Treatment")+
+  theme(legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5, size=16, face="bold"),
+        axis.title = element_text(size=14),
+        axis.text = element_text(size=12),
+        strip.text = element_text(size=12, face="bold"),
+        strip.background = element_rect(fill="lightgrey"))
+```
+
+Mean sperm motility across age variable and treatment variable ignoring time variable.   
+    
+```{r overall mean sperm motility, echo=FALSE, message=FALSE, warning=FALSE}
+# Plot overall mean sperm motility
+ggplot() +
+  geom_boxplot(data = means_SM,
+               aes_string(x = age_var[1],
+                          y = "mean_SM",
+                          fill = treatment_var[1]),
+               position = position_dodge(width = 1), outlier.shape = NA) +
+  geom_point(data = means_SM, aes_string(x = age_var[1], 
+                                                y = "mean_SM",
+                                                fill = treatment_var[1]),
+             position = position_dodge(width = 1),
+             size = 2, alpha = 0.5) +
+  theme_classic() +
+  labs(x = "Age in days",
+       y = "Mean sperm motility",
+       fill = "Treatment")+
+  theme(legend.position = "bottom",
+        axis.title = element_text(size=14),
+        axis.text = element_text(size=12))
+```
+
+Mean sperm motility within male and across age variable and treatment variable.    
+```{r individual mean sperm motility, echo=FALSE, message=FALSE, warning=FALSE}
+#Plot mean sperm motility per individual across treatments 
+ggplot() +
+  geom_point(data = means_SM, aes(x = .data[[treatment_var[1]]],
+                                         y = mean_SM,
+                                     color = .data[[age_var[1]]]),size = 2) +
+  geom_errorbar(data = means_SM,aes(x = .data[[treatment_var[1]]],
+                                       ymin = mean_SM - se_mean_SM,
+                                       ymax = mean_SM + se_mean_SM,
+                                       color = .data[[age_var[1]]]), 
+                width = 0.12, linewidth = 0.7) +
+  geom_line(
+    data = means_SM, aes(x = .data[[treatment_var[1]]], 
+                                y = mean_SM,
+                            group = .data[[id_var[1]]],
+                            color = .data[[age_var[1]]]), linewidth = 1.1, 
+    alpha = 0.7) +
+  facet_wrap(as.formula(paste("~", age_var[1])), nrow=1) +
+  labs(x = "Treatment",
+       y = "Mean individual sperm motility") +
+  guides(color = "none") +
+  theme_classic() +
+  theme(
+    legend.position = "right",,
+    axis.title = element_text(size=14),
+    axis.text.y = element_text(size=12),
+    axis.text.x = element_text(size=12,angle=45, hjust=1),
+    strip.text = element_text(size=12, face="bold"),
+    strip.background = element_rect(fill="lightgrey")
+  )
+```
+
+
+Maximum sperm motility within male and across age variable and treatment variable.    
+     
+```{r individual max sperm motility, echo=FALSE, message=FALSE, warning=FALSE}
+#Plot overall maximum sperm motility per individual across treatments 
+ggplot() +
+  geom_point(data = means_SM, aes(x = .data[[treatment_var[1]]], y = max_SM,
+      color = .data[[age_var[1]]]),size = 2) +
+  geom_line(
+    data = means_SM, aes(x = .data[[treatment_var[1]]], y = max_SM,
+      group = .data[[id_var[1]]],
+      color = .data[[age_var[1]]]), linewidth = 1.1, alpha = 0.7) +
+  facet_wrap(as.formula(paste("~", age_var[1])), nrow=1) +
+  labs(x = "Treatment",
+    y = "Maximum individual sperm motility") +
+  guides(color = "none") +
+  theme_classic() +
+  theme(
+    legend.position = "right",,
+    axis.title = element_text(size=14),
+    axis.text.y = element_text(size=12),
+    axis.text.x = element_text(size=12,angle=45, hjust=1),
+    strip.text = element_text(size=12, face="bold"),
+    strip.background = element_rect(fill="lightgrey")
+  )
+```
+
+Minimum sperm motility within male and across age variable and treatment variable. 
+     
+```{r overall min sperm motility, echo=FALSE, message=FALSE, warning=FALSE}
+#Plot overall minimum sperm motility per individual across treatments 
+ggplot() +
+  geom_point(data = means_SM, aes(x = .data[[treatment_var[1]]], y = min_SM,
+                                         color = .data[[age_var[1]]]),size = 2) +
+  geom_line(data = means_SM, aes(x = .data[[treatment_var[1]]], y = min_SM,
+                                group = .data[[id_var[1]]],
+                                color = .data[[age_var[1]]]), linewidth = 1, 
+            alpha = 0.7) +
+  facet_wrap(as.formula(paste("~", age_var[1])), nrow=1) +
+  labs(x = "Treatment",
+       y = "Minimum individual sperm motility") +
+  guides(color = "none") +
+  theme_classic() +
+  theme(
+    legend.position = "right",,
+    axis.title = element_text(size=14),
+    axis.text.y = element_text(size=12),
+    axis.text.x = element_text(size=12,angle=45, hjust=1),
+    strip.text = element_text(size=12, face="bold"),
+    strip.background = element_rect(fill="lightgrey")
+  )
+```
+
+
+## A quick and dirty first analysis of your sperm motility  
+
+We will fit a linear mixed effects model to the data with sperm motility as response variable, treatment, age, and time as fixed effects, and male ID as random effect. But first we start with a linear model without random effects to check if the data meets model assumptions.
+
+```{r fit lm model, echo=FALSE, message=FALSE, warning=FALSE}
+# 6. Model Fitting----------------------------
+# Function to run DHARMa tests and print results
+run_dharma_tests <- function(simulation_output) {
+  
+  # List of tests to apply, with labels
+  tests <- list(
+    "Outliers"      = testOutliers,
+    "Uniformity"    = testUniformity,
+    "Dispersion"    = testDispersion,
+    "Quantiles"     = testQuantiles,
+    "Zero-inflation"= testZeroInflation
+  )
+  
+  # Loop through each test
+  for (test_name in names(tests)) {
+    test_fun <- tests[[test_name]]
+    
+    # Run test
+    result <- test_fun(simulation_output)
+    
+    # Extract p-value safely
+    p <- result$p.value
+    
+    # Print results
+    if (p < 0.05) {
+      cat(sprintf("Warning: %s issues detected (p = %.4f)\n", test_name, p))
+    } else {
+      cat(sprintf("No significant %s issues detected (p = %.4f)\n", test_name, p))
+    }
+  }
+}
+
+# First run a linear model without random effects
+linear_model <- lm(as.formula(paste('mean_SM', "~", paste(group_vars,
+                                                          collapse = " + "))), 
+                   data = general_mean_SM)
+
+# Check model diagnostics using DHARMa
+simulation_output_lm <- simulateResiduals(fittedModel = linear_model, 
+                                          n = 1000)
+# Run DHARMa tests
+run_dharma_tests(simulation_output_lm)
+
+cat("If you get a warning message, refine your model or consult a statistician. Although it might already be to late!")
+```
+    
+         
+If you did not get a warning message from the DHARMa tests above, you can go ahead and check the ANOVA table.    
+    
+```{r lm anova table, echo=FALSE, message=FALSE, warning=FALSE}
+# ANOVA table
+# Model summary and ANOVA
+anova(linear_model)
+```
+     
+      
+**Fitting linear mixed effects model**    
+
+Now we fit a linear mixed effects model if an ID column was detected in the data. If no ID column was detected we go back to the linear model output.   
+      
+First, check the model assumptions with the DHARMa package.     
+```{r fit lmer model, echo=FALSE, message=FALSE, warning=FALSE}
+# Determine the model type based on the data variables 
+# Run a mixed effects model if ID column is detected
+
+# Create model formula based on the number of predictors detected
+if (length(predictors) == 1) {
+  fixed_formula <- group_vars[1]
+} else {
+  fixed_formula <- paste(group_vars[1:min(3, length(group_vars))], 
+                         collapse = " * ")
+}
+
+# Presence or absence of random effects based on ID column detection
+if (!is.null(id_col)) {
+  formula <- as.formula(paste(response_var, "~", fixed_formula, "+ 
+                              (1|", id_col, ")"))
+} else {
+  formula <- as.formula(paste(response_var, "~", fixed_formula))
+}
+
+# Run linear mixed effects model or linear model based on ID column detection
+if (!is.null(id_col)) {
+  model <- lmer(formula, data = my_data, REML = FALSE)
+  model_type <- "Linear Mixed-Effects Model"
+} else {
+  model <- lm(as.formula(paste(response_var, "~", fixed_formula)), 
+              data = my_data)
+  model_type <- "Linear Model (no random effects)"
+}
+
+# Model type and variables fitted
+cat("Model type:", model_type, "\n",
+    "Variables fitted:", group_vars, "\n")
+
+# Check model diagnostics using DHARMa
+simulation_output <- simulateResiduals(fittedModel = model, 
+                                          n = 1000)
+# Run DHARMa tests
+run_dharma_tests(simulation_output)
+
+cat("If you get a warning message, refine your model or consult a statistician. Although it might already be to late!")
+```
+     
+If you did not get a warning message from the DHARMa tests above, you can go ahead and check the ANOVA table.    
+    
+```{r anova table, echo=FALSE, message=FALSE, warning=FALSE}
+# ANOVA table
+knitr::kable(anova(model))
+```
+
+**Calculate estimated marginal means and confidence limits**   
+
+If everything looks fine we can go ahead and calculate estimated marginal means (emmeans) including confidence limits (CLs) for our model. We also visualise the emmeans with ggplot2.   
+
+First, we produce a table with mean estimates and CLs.          
+```{r emmeans and plots, echo=FALSE, message=FALSE, warning=FALSE}
+# 7. Calculate and visualise estimated marginal means and CLs ----------------------------
+library(emmeans)
+# Calculate emmeans for the detected group variables
+emm <- emmeans(model, specs = as.formula(paste("~", paste(group_vars, 
+                                                          collapse = " * "))))
+knitr::kable(emm)
+
+# Conver emmeans to a data frame for plotting and saving to CSV
+emm_df <- as.data.frame(emm)
+```
+     
+Then we calculate the pairwise comparisons within each time of measurement    
+```{r pairwise comparisons, echo=FALSE, message=FALSE, warning=FALSE}
+# Calculate and save pairwise comparisons within each time of measurement
+simp <- pairs(emm, simple = treatment_var)
+
+knitr::kable(simp)
+```
+
+**Estimated marginal means plot with confidence limits**
+     
+Finally, we plot sperm motility over time variable, age variable, and treatment variables including individual data points.   
+      
+```{r emmeans plot, echo=FALSE, message=FALSE, warning=FALSE}
+# emmeans plot 
+levels(emm_df[[time_var[1]]]) <- c("0", "2", "4","6")
+ggplot()+
+  geom_line(data=emm_df, aes_string(x = time_var[1], y = "emmean", 
+                               group = treatment_var[1], 
+                               color = treatment_var[1]),linewidth=1, 
+            position=position_dodge(0.4))+
+  geom_point(data=emm_df, aes_string(x = time_var[1], y = "emmean",
+                                group = treatment_var[1], 
+                                color =  treatment_var[1]),size=3, 
+             position=position_dodge(0.4))+
+  geom_errorbar(data=emm_df, aes_string(x = time_var[1], y = "emmean", 
+                                   group = treatment_var[1], 
+                                   color = treatment_var[1], 
+                                   ymin  =  "lower.CL",
+                                   ymax  =  "upper.CL"), width =  0.1, 
+                linewidth  =  0.5, position=position_dodge(0.4))+
+  geom_point(data=my_data, aes_string(x = time_var[1], y = response_var, 
+                               group = treatment_var[1], 
+                               color = treatment_var[1]),alpha=0.1,
+             position=position_dodge(0.4))+
+  facet_wrap(as.formula(paste("~", age_var[1])), nrow=1)+
+  labs(x = "Time in minutes", 
+       y = expression(paste("Sperm motility (temporal noise ",sigma,")")),
+       color = "Treatment")+
+  theme_classic()+
+  theme(legend.position="bottom",
+        axis.title = element_text(size=14),
+        axis.text = element_text(size=12),
+        strip.text = element_text(size=12, face="bold"),
+        strip.background = element_rect(fill="lightgrey"))
+```
