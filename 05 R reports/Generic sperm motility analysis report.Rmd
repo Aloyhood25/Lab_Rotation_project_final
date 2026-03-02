@@ -225,7 +225,8 @@ if (length(fixed.predictors) == 1) {
     
 Having made exploratory plots. Now we go a little further and plot the mean, maximum and minimum sperm motility including the individual data points. 
     
-Sperm motility over time variable, age variable, and treatment variables.   
+Sperm motility over time variable, age variable, and treatment variables. 
+First we create the group mean data frame.
     
 ```{r plot means, echo=FALSE, message=FALSE, warning=FALSE}
 # Create group means using detected predictor variables
@@ -409,7 +410,7 @@ ggplot() +
 
 ## A quick and dirty first analysis of your sperm motility  
 
-We will fit a linear mixed effects model to the data with sperm motility as response variable, treatment, age, and time as fixed effects, and male ID as random effect. But first we start with a linear model without random effects to check if the data meets model assumptions.
+We will fit a linear mixed effects model to the data with sperm motility as response variable, treatment, age, and time as fixed effects, and male ID as random effect. But first we start with a linear model without random effects to check if the data meets model assumptions. Our data is the general mean sperm motility data frame created above.
 
 ```{r fit lm model, echo=FALSE, message=FALSE, warning=FALSE}
 # 6. Model Fitting----------------------------
